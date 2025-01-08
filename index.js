@@ -61,20 +61,60 @@ const getComments = async (continuationCommand) => {
     (e) => e.payload.commentEntityPayload.properties
   );
 
-  const comments = commentsObject.mcap((e) => {
-    return { comment: e.content.content, comment_id: e.commentId };
+  const comments = [];
+  commentsObject.forEach((e) => {
+    let contCommand;
+    if (response?.data?.onResponseReceivedEndpoints?.[1]) {
+      response?.data?.onResponseReceivedEndpoints?.[1]?.reloadContinuationItemsCommand?.continuationItems.forEach(
+        (j) => {
+          if (
+            j?.commentThreadRenderer?.replies?.commentRepliesRenderer?.targetId?.includes(
+              e.commentId
+            )
+          ) {
+            contCommand =
+              j?.commentThreadRenderer?.replies?.commentRepliesRenderer
+                ?.contents?.[0]?.continuationItemRenderer?.continuationEndpoint
+                ?.continuationCommand?.token;
+            return;
+          }
+        }
+      );
+    } else {
+      response?.data?.onResponseReceivedEndpoints?.[0]?.appendContinuationItemsAction?.continuationItems.forEach(
+        (j) => {
+          if (
+            j?.commentThreadRenderer?.replies?.commentRepliesRenderer?.targetId?.includes(
+              e.commentId
+            )
+          ) {
+            contCommand =
+              j?.commentThreadRenderer?.replies?.commentRepliesRenderer
+                ?.contents?.[0]?.continuationItemRenderer?.continuationEndpoint
+                ?.continuationCommand?.token;
+            return;
+          }
+        }
+      );
+    }
+
+    comments.push({
+      comment: e.content.content,
+      comment_id: e.commentId,
+      continuationCommand: contCommand,
+    });
   });
 
   return {
     response,
     comment_info: comments,
-    continuationCommand,
+    nextContinuationCommand: continuationCommand,
   };
 };
 
 const main = async () => {
   const response = await initialRequest(
-    "https://www.youtube.com/shorts/-BYMUKycQq8"
+    "https://www.youtube.com/shorts/6Rrb0GohNoY"
   );
 
   let continuationCommand =
@@ -95,7 +135,12 @@ const main = async () => {
     );
     continuationCommand = nextContinuationCommand;
 
-    res = comment_info.filter((e) => e.comment.includes("name"));
+    res = comment_info.filter((e) => e.comment.includes("What movie"));
+
+    // filter for comment level continuationCommand to go into the comment: to explore 'what is this movie scenarios'
+    const commentContinuation = res?.filter((e) => e.continuationCommand)?.[0];
+    if (commentContinuation) continuationCommand = commentContinuation?.continuationCommand;
+
     if (res && res.length > 0) break;
   }
 
