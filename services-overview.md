@@ -12,7 +12,7 @@
   - **Regex Matching**:
     - Use regular expressions to shortlist potential hits from the extracted comments.
   - **LLM Integration** (Optional):
-    - Explore the feasibility of using a Language Learning Model (LLM) to improve hit detection accuracy and handle edge cases.
+    - Explore the feasibility of using a Large Language Model (LLM) to improve hit detection accuracy and handle edge cases.
 
 ---
 
