@@ -1,0 +1,15 @@
+# Go binary output
+/bin/
+/build/
+/out/
+
+# Vendor directory (if you use vendoring)
+vendor/
+
+# IDE/editor folders
+.vscode/
+.idea/
+
+# OS-specific files
+.DS_Store
+Thumbs.db
