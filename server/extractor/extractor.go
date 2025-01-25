@@ -6,9 +6,15 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"regexp"
 	"strings"
 
 	"github.com/tidwall/gjson"
+)
+
+const (
+	totalIterations    = 3
+	filterCommentsFlag = false
 )
 
 type Comment struct {
@@ -45,7 +51,7 @@ func GetComments(url string) ([]string, error) {
 
 	for {
 		iteration++
-		if iteration == 30 || len(ccStack) == 0 {
+		if iteration == totalIterations || len(ccStack) == 0 {
 			break
 		}
 
@@ -56,8 +62,16 @@ func GetComments(url string) ([]string, error) {
 			fmt.Printf("error while getComments\n")
 		}
 
-		for _, comment := range commentResponse.CommentInfo {
-			comments = append(comments, comment.Comment)
+		if commentResponse.NextContinuationCommand != nil && *commentResponse.NextContinuationCommand != "" {
+			ccStack = append(ccStack, *commentResponse.NextContinuationCommand)
+		}
+
+		if filterCommentsFlag {
+			filterComments(commentResponse.CommentInfo, &comments, &ccStack)
+		} else {
+			for _, comment := range commentResponse.CommentInfo {
+				comments = append(comments, comment.Comment)
+			}
 		}
 	}
 
@@ -171,7 +185,7 @@ func getCommentsRequest(token string) (*GetCommentResponse, error) {
 		NextContinuationCommand: &nextToken,
 	}
 
-	return &getCommentsResponse, errors.New("error reading the response body")
+	return &getCommentsResponse, nil
 }
 
 func initialRequest(url string) (*string, error) {
@@ -209,6 +223,25 @@ func initialRequest(url string) (*string, error) {
 	}
 
 	return jsonStr, nil
+}
+
+func filterComments(inputComments []Comment, comments *[]string, ccStack *[]string) {
+	movieMentionRegex := regexp.MustCompile(`(?:\b(movie|film|cinema|show|series|watched|saw|seen|about|called|name)\s+|(?:"([^"]+)"|'([^']+)'))`)
+	askingForMovieRegex := regexp.MustCompile(`\b(what.s|which|can|anybody|please)\s+(movie|show|series|scene|film|is|was|this|that|it|tell)\??|name\s+(of|this|that)\s+(movie|show|series)\??`)
+
+	for _, comment := range inputComments {
+		if movieMentionRegex.MatchString(comment.Comment) {
+			*comments = append(*comments, comment.Comment)
+		}
+	}
+
+	for _, comment := range inputComments {
+		if askingForMovieRegex.MatchString(comment.Comment) {
+			if comment.ContinuationCommand != nil && *comment.ContinuationCommand != "" {
+				*ccStack = append(*ccStack, *comment.ContinuationCommand)
+			}
+		}
+	}
 }
 
 func extractJsonFromHtml(body string) (*string, error) {

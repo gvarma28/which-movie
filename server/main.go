@@ -3,10 +3,10 @@ package main
 import (
 	"errors"
 	"fmt"
+	"github.com/gvarma28/which-movie/server/extractor"
 	"io"
 	"net/http"
 	"os"
-	"github.com/gvarma28/which-movie/server/extractor"
 )
 
 func getRoot(w http.ResponseWriter, r *http.Request) {
