@@ -8,10 +8,11 @@
 	const onSubmit = async () => {
 		const SERVER_URL = import.meta.env.VITE_SERVER_URL;
 		const api_url = SERVER_URL + 'magic?url=' + url;
-		const response = await fetch(api_url, {
+		const response: any = await fetch(api_url, {
 			method: 'GET'
 		});
-		value = await response.text();
+		const jsonReponse = await response.json();
+		value = jsonReponse.result
 	};
 	/*
 		//  runs whenever `url` changes -> similar to useEffect
@@ -23,7 +24,7 @@
 
 <div class="page">
 	<div class="container">
-		<input type="url" bind:value={url} />
+		<input type="url" placeholder="Enter YouTube Shorts URL" bind:value={url} />
 		<button type="submit" on:click={onSubmit}>submit</button>
 		<p>Result {value}</p>
 	</div>
@@ -56,13 +57,6 @@
 		width: 100%;
 		max-width: 400px;
 		text-align: center;
-	}
-
-	/* Heading style */
-	h1 {
-		font-size: 2rem;
-		color: #4a90e2;
-		margin-bottom: 20px;
 	}
 
 	/* Input and button styling */

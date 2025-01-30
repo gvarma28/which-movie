@@ -29,7 +29,7 @@ type GetCommentResponse struct {
 	NextContinuationCommand *string     `json:"nextContinuationCommand"`
 }
 
-func GetComments(url string) ([]string, error) {
+func ExtractData(url string) ([]string, error) {
 	fmt.Printf("Processing url -> %s\n", url)
 	if !strings.Contains(url, "www.youtube.com") {
 		return nil, errors.New("invalid url: please enter a valid youtube short url")
