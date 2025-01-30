@@ -1,17 +1,21 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/gvarma28/which-movie/server/extractor"
 	"io"
 	"net/http"
-	"encoding/json"
 	"os"
+
+	"github.com/gvarma28/which-movie/server/extractor"
+	"github.com/gvarma28/which-movie/server/processor"
+	"github.com/joho/godotenv"
 )
 
 type Response struct {
-	Message []string `json:"message"`
+	Message []string `json:"message,omitempty"`
+	Result string `json:"result"`
 	Success bool   `json:"success"`
 }
 
@@ -21,13 +25,18 @@ func getRoot(w http.ResponseWriter, r *http.Request) {
 
 func doMagic(w http.ResponseWriter, r *http.Request) {
 	url := r.URL.Query().Get("url")
-	test, err := extractor.GetComments(url)
+	extractedData, err := extractor.ExtractData(url)
 	if err != nil {
 		fmt.Printf("invalid response from GetComments\n")
 	}
 
+	movieName, err := processor.ProcessExtractedData(extractedData)
+	if err != nil {
+		fmt.Printf("invalid response from GetMovieName\n")
+	}
+
 	response := Response{
-		Message: test,
+		Result: *movieName,
 		Success: true,
 	}
 	// Encode the struct to JSON and send it in the response body
@@ -58,6 +67,10 @@ func enableCors(next http.Handler) http.Handler {
 }
 
 func main() {
+	err := godotenv.Load()
+	if err != nil {
+		fmt.Printf("error loading .env file\n")
+	}
 	const PORT = ":8080"
 	mux := http.NewServeMux()
 
@@ -65,7 +78,7 @@ func main() {
 	mux.HandleFunc("/magic", doMagic)
 
 	fmt.Printf("server has started at port %s\n", PORT)
-	err := http.ListenAndServe(PORT, enableCors(mux))
+	err = http.ListenAndServe(PORT, enableCors(mux))
 	if errors.Is(err, http.ErrServerClosed) {
 		fmt.Printf("server closed\n")
 	} else if err != nil {
