@@ -13,7 +13,6 @@
 		});
 		const jsonReponse = await response.json();
 		value = jsonReponse.result
-		console.log(jsonReponse, value);
 	};
 	/*
 		//  runs whenever `url` changes -> similar to useEffect
