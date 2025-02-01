@@ -15,13 +15,16 @@ import (
 
 type Response struct {
 	Message []string `json:"message,omitempty"`
-	Result string `json:"result"`
-	Success bool   `json:"success"`
+	Result  string   `json:"result"`
+	Success bool     `json:"success"`
 }
 
 func getRoot(w http.ResponseWriter, r *http.Request) {
 	io.WriteString(w, "Hello world!\n")
 }
+
+const disableProcessingComments bool = true
+const disableProcessingSubtitles bool = false
 
 func doMagic(w http.ResponseWriter, r *http.Request) {
 	url := r.URL.Query().Get("url")
@@ -30,13 +33,27 @@ func doMagic(w http.ResponseWriter, r *http.Request) {
 		fmt.Printf("invalid response from GetComments\n")
 	}
 
-	movieName, err := processor.ProcessExtractedData(extractedData)
-	if err != nil {
-		fmt.Printf("invalid response from GetMovieName\n")
+	var movieName string
+	// process subtitles
+	if !disableProcessingSubtitles {
+		movieNameAddr, err := processor.ProcessExtractedSubtitles(*extractedData.Subtitles)
+		if err != nil {
+			fmt.Printf("invalid response from GetMovieName\n")
+		}
+		movieName = *movieNameAddr
+	}
+
+	// process comments
+	if !disableProcessingComments {
+		movieNameAddr, err := processor.ProcessExtractedComments(extractedData.Comments)
+		if err != nil {
+			fmt.Printf("invalid response from GetMovieName\n")
+		}
+		movieName = *movieNameAddr
 	}
 
 	response := Response{
-		Result: *movieName,
+		Result:  movieName,
 		Success: true,
 	}
 	// Encode the struct to JSON and send it in the response body
