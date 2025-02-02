@@ -23,31 +23,49 @@ func getRoot(w http.ResponseWriter, r *http.Request) {
 	io.WriteString(w, "Hello world!\n")
 }
 
-const disableProcessingComments bool = true
-const disableProcessingSubtitles bool = false
+const (
+	processingComments  = false
+	processingSubtitles = false
+	processAll          = true
+)
 
 func doMagic(w http.ResponseWriter, r *http.Request) {
 	url := r.URL.Query().Get("url")
 	extractedData, err := extractor.ExtractData(url)
 	if err != nil {
 		fmt.Printf("invalid response from GetComments\n")
+		response := Response{
+			Result:  "Unknown",
+			Success: false,
+		}
+		if err := json.NewEncoder(w).Encode(response); err != nil {
+			// If encoding fails, return an error response
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		return
 	}
 
 	var movieName string
 	// process subtitles
-	if !disableProcessingSubtitles {
-		movieNameAddr, err := processor.ProcessExtractedSubtitles(*extractedData.Subtitles)
+	if processAll {
+		comments := extractedData.Comments
+		comments = append(comments, *extractedData.Title, *extractedData.Subtitles)
+		movieNameAddr, err := processor.ProcessExtractedComments(comments)
 		if err != nil {
-			fmt.Printf("invalid response from GetMovieName\n")
+			fmt.Printf("invalid response from ProcessExtractedComments - processAll\n")
 		}
 		movieName = *movieNameAddr
-	}
-
-	// process comments
-	if !disableProcessingComments {
+	} else if processingComments {
 		movieNameAddr, err := processor.ProcessExtractedComments(extractedData.Comments)
 		if err != nil {
-			fmt.Printf("invalid response from GetMovieName\n")
+			fmt.Printf("invalid response from ProcessExtractedComments - processingComments\n")
+		}
+		movieName = *movieNameAddr
+	} else if processingSubtitles {
+		movieNameAddr, err := processor.ProcessExtractedSubtitles(*extractedData.Subtitles)
+		if err != nil {
+			fmt.Printf("invalid response from ProcessExtractedSubtitles - processAll\n")
 		}
 		movieName = *movieNameAddr
 	}

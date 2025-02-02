@@ -5,9 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/tidwall/gjson"
 )
@@ -39,9 +42,16 @@ func ExtractData(url string) (*ExtractDataResponse, error) {
 		return nil, errors.New("error while getting comments data")
 	}
 
+	title, err := getTitleData(initialReponse.InitialPlayerResponse)
+	if err != nil {
+		fmt.Printf("error while getting title data: err %v\n", err)
+		return nil, errors.New("error while getting title data")
+	}
+
 	extractDataResponse := ExtractDataResponse{
-		Comments: comments,
+		Comments:  comments,
 		Subtitles: subtitles,
+		Title:     title,
 	}
 
 	return &extractDataResponse, nil
@@ -93,11 +103,88 @@ func getSubtitlesData(data *string) (*string, error) {
 
 	baseUrl := gjson.Get(*data, "captions.playerCaptionsTracklistRenderer.captionTracks.0.baseUrl")
 	if !baseUrl.Exists() {
-		return nil, errors.New("error while extracting the token from jsonStr")
+		fmt.Printf("subtitles not available for the video, returning empty string")
+		res := ""
+		return &res, nil
 	}
 	timedtextUrl := baseUrl.String()
 
-	return &timedtextUrl, nil
+	body, err := getSubtitlesRequest(timedtextUrl)
+	if err != nil {
+		fmt.Printf("error at getSubtitlesRequest %v \n", err)
+		return nil, fmt.Errorf("error at getSubtitlesRequest %v", err)
+	}
+
+	var subtitles []string
+
+	eventArr := gjson.Get(string(body), "events")
+	eventArr.ForEach(func(key, value gjson.Result) bool {
+
+		subtitleArr := value.Get("segs")
+		if subtitleArr.Exists() {
+			subtitleArr.ForEach(func(key, value gjson.Result) bool {
+				subtitle := value.Get("utf8")
+				subtitles = append(subtitles, subtitle.String())
+				return true
+			})
+		}
+
+		return true
+	})
+
+	subtitle := strings.Join(subtitles, " ")
+
+	return &subtitle, nil
+
+}
+
+func getTitleData(data *string) (*string, error) {
+
+	baseData := gjson.Get(*data, "videoDetails.title")
+	if !baseData.Exists() {
+		return nil, errors.New("error while extracting the token from jsonStr")
+	}
+	title := baseData.String()
+
+	return &title, nil
+
+}
+
+func getSubtitlesRequest(baseUrl string) ([]byte, error) {
+
+	parsedURL, err := url.Parse(baseUrl)
+	if err != nil {
+		fmt.Printf("error parsing the url %v", err)
+	}
+
+	queryParams := parsedURL.Query()
+	queryParams.Set("fmt", "json3")
+	queryParams.Set("lang", "en")
+
+	parsedURL.RawQuery = queryParams.Encode()
+
+	req, err := http.NewRequest("GET", parsedURL.String(), nil)
+	if err != nil {
+		fmt.Printf("Error while creating the GET request: %v\n", err)
+		return nil, errors.New("error while creating the GET request")
+	}
+
+	client := &http.Client{}
+	// Send the request
+	response, err := client.Do(req)
+	if err != nil {
+		fmt.Printf("Error making the GET request: %v\n", err)
+		return nil, errors.New("error making the GET request")
+	}
+	defer response.Body.Close()
+
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		fmt.Printf("Error reading the response body: %v\n", err)
+		return nil, errors.New("error reading the response body")
+	}
+
+	return body, nil
 
 }
 
@@ -238,14 +325,22 @@ func initialRequest(url string) (*InitialReponse, error) {
 		return nil, errors.New("error reading the response body")
 	}
 
+	// save html to file
+	// err = os.WriteFile("output.txt", body, 0644)
+	// if err != nil {
+	// 	panic(err)
+	// }
+
+	endStrArr := []string{";</script>"}
 	// Extract the json string within the html
-	initialData, err := extractJsonFromHtml(string(body), "var ytInitialData = ", ";</script>")
+	initialData, err := extractJsonFromHtml(string(body), "var ytInitialData = ", endStrArr)
 	if err != nil {
 		fmt.Printf("Error reading the response body: %v\n", err)
 		return nil, errors.New("error reading the response body")
 	}
 
-	initialPlayerResponse, err := extractJsonFromHtml(string(body), "var ytInitialPlayerResponse = ", ";var")
+	endStrArr = append(endStrArr, ";var")
+	initialPlayerResponse, err := extractJsonFromHtml(string(body), "var ytInitialPlayerResponse = ", endStrArr)
 	if err != nil {
 		fmt.Printf("Error reading the response body: %v\n", err)
 		return nil, errors.New("error reading the response body")
@@ -278,24 +373,29 @@ func filterComments(inputComments []Comment, comments *[]string, ccStack *[]stri
 	}
 }
 
-func extractJsonFromHtml(body string, startStr string, endStr string) (*string, error) {
+func extractJsonFromHtml(body string, startStr string, endStr []string) (*string, error) {
 	cleanedResponse := strings.ReplaceAll(body, "\n", "")
 	// start := strings.Index(cleanedResponse, "var ytInitialData = ")
 	start := strings.Index(cleanedResponse, startStr)
 	if start == -1 {
 		fmt.Printf("Error '%s' not found \n", startStr)
-		return nil, errors.New(fmt.Sprintf("error start '%s' not found \n", startStr))
+		return nil, fmt.Errorf("error start '%s' not found", startStr)
 	}
 	// Adjust start index to skip "var ytInitialData = "
-	start += len(startStr)
-	end := strings.Index(cleanedResponse[start:], endStr)
-	if end == -1 {
-		fmt.Printf("Error '%s' not found \n", endStr)
-		return nil, errors.New(fmt.Sprintf("error endStr '%s' not found \n", endStr))
+	start += utf8.RuneCountInString(startStr)
+
+	minLastIdx := math.MaxInt
+	for _, v := range endStr {
+		end := strings.Index(cleanedResponse[start:], v)
+		if end == -1 {
+			continue
+		}
+		if minLastIdx > end {
+			minLastIdx = end
+		}
 	}
+
 	// Extract the JSON string and parse it
-	jsonStr := cleanedResponse[start : start+end]
+	jsonStr := cleanedResponse[start : start+minLastIdx]
 	return &jsonStr, nil
 }
-
-// https://www.youtube.com/api/timedtext?v=16tWbpk8sws\u0026ei=UdmdZ9tswOyDxQ_kja7pCg\u0026caps=asr\u0026opi=112496729\u0026xoaf=5\u0026xosf=1\u0026hl=en\u0026ip=0.0.0.0\u0026ipbits=0\u0026expire=1738423233\u0026sparams=ip,ipbits,expire,v,ei,caps,opi,xoaf\u0026signature=67FBC37F84BD59F60AF32D37E6BA529C0C3EAD8F.D1FA5026DC0D84C5006FD9F72DC7C80519E9A490\u0026key=yt8\u0026kind=asr\u0026lang=en

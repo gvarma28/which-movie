@@ -6,6 +6,7 @@
 	// "https://www.youtube.com/shorts/16tWbpk8sws"
 
 	const onSubmit = async () => {
+		value = ""
 		const SERVER_URL = import.meta.env.VITE_SERVER_URL;
 		const api_url = SERVER_URL + 'magic?url=' + url;
 		const response: any = await fetch(api_url, {
