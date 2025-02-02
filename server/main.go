@@ -15,28 +15,63 @@ import (
 
 type Response struct {
 	Message []string `json:"message,omitempty"`
-	Result string `json:"result"`
-	Success bool   `json:"success"`
+	Result  string   `json:"result"`
+	Success bool     `json:"success"`
 }
 
 func getRoot(w http.ResponseWriter, r *http.Request) {
 	io.WriteString(w, "Hello world!\n")
 }
 
+const (
+	processingComments  = false
+	processingSubtitles = false
+	processAll          = true
+)
+
 func doMagic(w http.ResponseWriter, r *http.Request) {
 	url := r.URL.Query().Get("url")
 	extractedData, err := extractor.ExtractData(url)
 	if err != nil {
 		fmt.Printf("invalid response from GetComments\n")
+		response := Response{
+			Result:  "Unknown",
+			Success: false,
+		}
+		if err := json.NewEncoder(w).Encode(response); err != nil {
+			// If encoding fails, return an error response
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		return
 	}
 
-	movieName, err := processor.ProcessExtractedData(extractedData)
-	if err != nil {
-		fmt.Printf("invalid response from GetMovieName\n")
+	var movieName string
+	// process subtitles
+	if processAll {
+		comments := extractedData.Comments
+		comments = append(comments, *extractedData.Title, *extractedData.Subtitles)
+		movieNameAddr, err := processor.ProcessExtractedComments(comments)
+		if err != nil {
+			fmt.Printf("invalid response from ProcessExtractedComments - processAll\n")
+		}
+		movieName = *movieNameAddr
+	} else if processingComments {
+		movieNameAddr, err := processor.ProcessExtractedComments(extractedData.Comments)
+		if err != nil {
+			fmt.Printf("invalid response from ProcessExtractedComments - processingComments\n")
+		}
+		movieName = *movieNameAddr
+	} else if processingSubtitles {
+		movieNameAddr, err := processor.ProcessExtractedSubtitles(*extractedData.Subtitles)
+		if err != nil {
+			fmt.Printf("invalid response from ProcessExtractedSubtitles - processAll\n")
+		}
+		movieName = *movieNameAddr
 	}
 
 	response := Response{
-		Result: *movieName,
+		Result:  movieName,
 		Success: true,
 	}
 	// Encode the struct to JSON and send it in the response body
