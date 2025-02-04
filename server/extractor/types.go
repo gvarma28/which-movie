@@ -14,7 +14,7 @@ type GetCommentResponse struct {
 
 type InitialReponse struct {
 	InitialData           *string `json:"initial_data"`
-	InitialPlayerResponse *string `json:"initial_player_response"`
+	InitialPlayerResponse map[string]any `json:"initial_player_response"`
 }
 
 type ExtractDataResponse struct {

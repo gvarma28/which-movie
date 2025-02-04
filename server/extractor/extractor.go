@@ -12,6 +12,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/gvarma28/which-movie/server/utils"
 	"github.com/tidwall/gjson"
 )
 
@@ -22,18 +23,18 @@ const (
 
 func ExtractData(url string) (*ExtractDataResponse, error) {
 	fmt.Printf("Processing url -> %s\n", url)
-	if !strings.Contains(url, "www.youtube.com") {
+	if !strings.Contains(url, "youtube.com") {
 		return nil, errors.New("invalid url: please enter a valid youtube short url")
 	}
 	initialReponse, err := initialRequest(url)
 	if err != nil {
+		fmt.Printf("error while getting initialResponse: err %v\n", err)
 		return nil, errors.New("error during initial request")
 	}
 
 	subtitles, err := getSubtitlesData(initialReponse.InitialPlayerResponse)
 	if err != nil {
 		fmt.Printf("error while getting subtitles data: err %v\n", err)
-		return nil, errors.New("error while getting subtitles data")
 	}
 
 	comments, err := getCommentsData(initialReponse.InitialData)
@@ -58,7 +59,6 @@ func ExtractData(url string) (*ExtractDataResponse, error) {
 }
 
 func getCommentsData(data *string) ([]string, error) {
-
 	ccStack := []string{}
 	token := gjson.Get(*data, "engagementPanels.0.engagementPanelSectionListRenderer.header.engagementPanelTitleHeaderRenderer.menu.sortFilterSubMenuRenderer.subMenuItems.0.serviceEndpoint.continuationCommand.token")
 	if !token.Exists() {
@@ -99,16 +99,8 @@ func getCommentsData(data *string) ([]string, error) {
 
 }
 
-func getSubtitlesData(data *string) (*string, error) {
-
-	baseUrl := gjson.Get(*data, "captions.playerCaptionsTracklistRenderer.captionTracks.0.baseUrl")
-	if !baseUrl.Exists() {
-		fmt.Printf("subtitles not available for the video, returning empty string")
-		res := ""
-		return &res, nil
-	}
-	timedtextUrl := baseUrl.String()
-
+func getSubtitlesData(data map[string]any) (*string, error) {
+	timedtextUrl := utils.FindInJSON(data, "captions", "playerCaptionsTracklistRenderer", "captionTracks", "0", "baseUrl").(string)
 	body, err := getSubtitlesRequest(timedtextUrl)
 	if err != nil {
 		fmt.Printf("error at getSubtitlesRequest %v \n", err)
@@ -116,38 +108,33 @@ func getSubtitlesData(data *string) (*string, error) {
 	}
 
 	var subtitles []string
-
-	eventArr := gjson.Get(string(body), "events")
-	eventArr.ForEach(func(key, value gjson.Result) bool {
-
-		subtitleArr := value.Get("segs")
-		if subtitleArr.Exists() {
-			subtitleArr.ForEach(func(key, value gjson.Result) bool {
-				subtitle := value.Get("utf8")
-				subtitles = append(subtitles, subtitle.String())
-				return true
-			})
+	eventJSON, err := utils.ConvertToJSON(body)
+	if err != nil {
+		return nil, err
+	}
+	eventArr := eventJSON["events"].([]any)
+	for _, eventObj := range eventArr {
+		subtitleArr, ok := eventObj.(map[string]any)["segs"].([]any)
+		if !ok {
+			continue
 		}
-
-		return true
-	})
-
-	subtitle := strings.Join(subtitles, " ")
+		for _, subtitleObj := range subtitleArr {
+			subtitle, ok := subtitleObj.(map[string]any)["utf8"].(string)
+			if !ok {
+				continue
+			}
+			subtitles = append(subtitles, subtitle)
+		}
+	}
+	subtitle := strings.Join(subtitles, "")
 
 	return &subtitle, nil
-
 }
 
-func getTitleData(data *string) (*string, error) {
-
-	baseData := gjson.Get(*data, "videoDetails.title")
-	if !baseData.Exists() {
-		return nil, errors.New("error while extracting the token from jsonStr")
-	}
-	title := baseData.String()
-
+func getTitleData(data map[string]any) (*string, error) {
+	baseData := data["videoDetails"].(map[string]any)
+	title := baseData["title"].(string)
 	return &title, nil
-
 }
 
 func getSubtitlesRequest(baseUrl string) ([]byte, error) {
@@ -345,10 +332,14 @@ func initialRequest(url string) (*InitialReponse, error) {
 		fmt.Printf("Error reading the response body: %v\n", err)
 		return nil, errors.New("error reading the response body")
 	}
+	jsonInitialPlayerResponse, err := utils.ConvertToJSON([]byte(*initialPlayerResponse))
+	if err != nil {
+		return nil, errors.New("error while converting json to map")
+	}
 
 	initialReponse := InitialReponse{
 		InitialData:           initialData,
-		InitialPlayerResponse: initialPlayerResponse,
+		InitialPlayerResponse: jsonInitialPlayerResponse,
 	}
 
 	return &initialReponse, nil
