@@ -1,11 +1,11 @@
 package utils
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
-	"bytes"
 )
 
 func GetRequest(url string, headers map[string]string) ([]byte, error) {
@@ -32,7 +32,6 @@ func GetRequest(url string, headers map[string]string) ([]byte, error) {
 		fmt.Printf("Error reading the response body: %v\n", err)
 		return nil, errors.New("error reading the response body")
 	}
-
 	return body, nil
 }
 

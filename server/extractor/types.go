@@ -13,7 +13,7 @@ type GetCommentResponse struct {
 }
 
 type InitialReponse struct {
-	InitialData           *string `json:"initial_data"`
+	InitialData           map[string]any `json:"initial_data"`
 	InitialPlayerResponse map[string]any `json:"initial_player_response"`
 }
 

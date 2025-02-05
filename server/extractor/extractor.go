@@ -10,7 +10,6 @@ import (
 	"unicode/utf8"
 
 	"github.com/gvarma28/which-movie/server/utils"
-	"github.com/tidwall/gjson"
 )
 
 const (
@@ -51,21 +50,19 @@ func ExtractData(url string) (*ExtractDataResponse, error) {
 		Subtitles: subtitles,
 		Title:     title,
 	}
-
 	return &extractDataResponse, nil
 }
 
-func getCommentsData(data *string) ([]string, error) {
+func getCommentsData(data map[string]any) ([]string, error) {
 	ccStack := []string{}
-	token := gjson.Get(*data, "engagementPanels.0.engagementPanelSectionListRenderer.header.engagementPanelTitleHeaderRenderer.menu.sortFilterSubMenuRenderer.subMenuItems.0.serviceEndpoint.continuationCommand.token")
-	if !token.Exists() {
+	token := utils.FindInJSON(data, "engagementPanels", "0", "engagementPanelSectionListRenderer", "header", "engagementPanelTitleHeaderRenderer", "menu", "sortFilterSubMenuRenderer", "subMenuItems", "0", "serviceEndpoint", "continuationCommand", "token")
+	if token == nil {
 		return nil, errors.New("error while extracting the token from jsonStr")
 	}
-	ccStack = append(ccStack, token.String())
+	ccStack = append(ccStack, token.(string))
 
 	comments := []string{}
 	iteration := 0
-
 	for {
 		iteration++
 		if iteration == totalIterations || len(ccStack) == 0 {
@@ -91,9 +88,7 @@ func getCommentsData(data *string) ([]string, error) {
 			}
 		}
 	}
-
 	return comments, nil
-
 }
 
 func getSubtitlesData(data map[string]any) (*string, error) {
@@ -148,96 +143,87 @@ func getSubtitlesRequest(baseUrl string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	return body, nil
 }
 
 func getCommentsRequest(token string) (*GetCommentResponse, error) {
-
 	// Make the GET request
 	url := "https://www.youtube.com/youtubei/v1/browse?prettyPrint=false"
 	data := fmt.Sprintf(`{"context":{"client":{"clientName":"WEB","clientVersion":"2.20240731.04.00"}},"continuation":"%s"}`, token)
 
 	headers := make(map[string]string)
 	headers["Content-Type"] = "application/json"
-	headers["Origin"] =  "www.youtube.com"
-	headers["Referer"] =  "www.youtube.com"
+	headers["Origin"] = "www.youtube.com"
+	headers["Referer"] = "www.youtube.com"
 
 	body, err := utils.PostRequest(url, headers, []byte(data))
 	if err != nil {
 		return nil, err
 	}
 
-	continuations := gjson.Get(string(body), "onResponseReceivedEndpoints.1.reloadContinuationItemsCommand.continuationItems")
-	if !continuations.Exists() {
-		continuations = gjson.Get(string(body), "onResponseReceivedEndpoints.0.appendContinuationItemsAction.continuationItems")
-		if !continuations.Exists() {
-			fmt.Printf("no continuation found\n")
-		}
+	jsonBody, err := utils.ConvertToJSON(body)
+	if err != nil {
+		fmt.Printf("Error while converting json to map: %v\n", err)
+		return nil, err
 	}
 
-	token2 := gjson.Get(continuations.String(), "20.continuationItemRenderer.continuationEndpoint.continuationCommand.token")
-	if !token2.Exists() {
-		fmt.Printf("token not found \n")
+	token2 := utils.FindInJSON(jsonBody, "onResponseReceivedEndpoints", "1", "reloadContinuationItemsCommand", "continuationItems", "20", "continuationItemRenderer", "continuationEndpoint", "continuationCommand", "token")
+	if token2 == nil {
+		token2 = utils.FindInJSON(jsonBody, "onResponseReceivedEndpoints", "0", "appendContinuationItemsAction", "continuationItems", "20", "continuationItemRenderer", "continuationEndpoint", "continuationCommand", "token")
 	}
-	nextToken := token2.String()
+	nextToken := token2.(string)
 
 	var comments []Comment
-	mutations := gjson.Get(string(body), "frameworkUpdates.entityBatchUpdate.mutations")
-	mutations.ForEach(func(_, mutation gjson.Result) bool {
-		commentEntityPayload := mutation.Get("payload.commentEntityPayload")
-		if commentEntityPayload.Exists() {
-			// Extract comment properties
-			commentId := commentEntityPayload.Get("properties.commentId").String()
-			content := commentEntityPayload.Get("properties.content.content").String()
+	mutationsArr := utils.FindInJSON(jsonBody, "frameworkUpdates", "entityBatchUpdate", "mutations").([]any)
+	for _, mutation := range mutationsArr {
+		commentEntityPayload := utils.FindInJSON(mutation, "payload", "commentEntityPayload")
+		if commentEntityPayload == nil {
+			continue
+		}
+		commentId := utils.FindInJSON(commentEntityPayload, "properties", "commentId").(string)
+		content := utils.FindInJSON(commentEntityPayload, "properties", "content", "content").(string)
 
-			var continuationCommand *string
-			// Find continuation command by checking both endpoints
-			appendContinuationItemsAction := gjson.Get(string(body), "onResponseReceivedEndpoints.0.appendContinuationItemsAction.continuationItems")
-			if appendContinuationItemsAction.Exists() {
-				appendContinuationItemsAction.ForEach(func(_, item gjson.Result) bool {
-					targetId := item.Get("commentThreadRenderer.replies.commentRepliesRenderer.targetId").String()
-					if strings.Contains(targetId, commentId) {
-						token := item.Get("commentThreadRenderer.replies.commentRepliesRenderer.contents.0.continuationItemRenderer.continuationEndpoint.continuationCommand.token").String()
-						continuationCommand = &token
-						return false // stop searching
-					}
-					return true
-				})
+		var continuationCommand *string
+
+		reloadContinuationItemsCommand := utils.FindInJSON(jsonBody, "onResponseReceivedEndpoints", "1", "reloadContinuationItemsCommand", "continuationItems")
+		if reloadContinuationItemsCommand == nil {
+			continue
+		}
+		reloadContinuationItemsCommandArr := reloadContinuationItemsCommand.([]any)
+		for _, item := range reloadContinuationItemsCommandArr {
+			continuationCommandRes, err := extractContinuationCommand(item, commentId)
+			if err != nil {
+				continue
 			}
+			continuationCommand = continuationCommandRes
+			break
+		}
 
-			if continuationCommand == nil {
-				// Check second endpoint for reloadContinuationItemsCommand
-				reloadContinuationItemsCommand := gjson.Get(string(body), "onResponseReceivedEndpoints.1.reloadContinuationItemsCommand.continuationItems")
-				if reloadContinuationItemsCommand.Exists() {
-					reloadContinuationItemsCommand.ForEach(func(_, item gjson.Result) bool {
-						targetId := item.Get("commentThreadRenderer.replies.commentRepliesRenderer.targetId").String()
-						if strings.Contains(targetId, commentId) {
-							token := item.Get("commentThreadRenderer.replies.commentRepliesRenderer.contents.0.continuationItemRenderer.continuationEndpoint.continuationCommand.token").String()
-							continuationCommand = &token
-							return false // stop searching
-						}
-						return true
-					})
+		if continuationCommand == nil {
+			appendContinuationItemsAction := utils.FindInJSON(jsonBody, "onResponseReceivedEndpoints", "0", "appendContinuationItemsAction", "continuationItems")
+			if appendContinuationItemsAction != nil {
+				appendContinuationItemsActionArr := appendContinuationItemsAction.([]any)
+				for _, item := range appendContinuationItemsActionArr {
+					continuationCommandRes, err := extractContinuationCommand(item, commentId)
+					if err != nil {
+						continue
+					}
+					continuationCommand = continuationCommandRes
+					break
 				}
 			}
-
-			// Add comment to the list
-			comments = append(comments, Comment{
-				Comment:             content,
-				CommentID:           commentId,
-				ContinuationCommand: continuationCommand,
-			})
 		}
-		return true
-	})
+	
+		cleanComment := cleanComment(content)
 
-	// Send full response
-	// getCommentsResponse := GetCommentResponse{
-	// 	Response: string(body),
-	// 	CommentInfo: comments,
-	// 	NextContinuationCommand: &nextToken,
-	// }
+		// Add comment to the list
+		comments = append(comments, Comment{
+			Comment:             cleanComment,
+			CommentID:           commentId,
+			ContinuationCommand: continuationCommand,
+		})
+
+	}
 
 	getCommentsResponse := GetCommentResponse{
 		Response:                nil,
@@ -264,6 +250,11 @@ func initialRequest(url string) (*InitialReponse, error) {
 		fmt.Printf("Error reading the response body: %v\n", err)
 		return nil, err
 	}
+	jsonInitialData, err := utils.ConvertToJSON([]byte(*initialData))
+	if err != nil {
+		fmt.Printf("Error while converting json to map: %v\n", err)
+		return nil, err
+	}
 
 	endStrArr = append(endStrArr, ";var")
 	initialPlayerResponse, err := extractJsonFromHtml(string(body), "var ytInitialPlayerResponse = ", endStrArr)
@@ -278,7 +269,7 @@ func initialRequest(url string) (*InitialReponse, error) {
 	}
 
 	initialReponse := InitialReponse{
-		InitialData:           initialData,
+		InitialData:           jsonInitialData,
 		InitialPlayerResponse: jsonInitialPlayerResponse,
 	}
 	return &initialReponse, nil
@@ -328,4 +319,64 @@ func extractJsonFromHtml(body string, startStr string, endStr []string) (*string
 	// Extract the JSON string and parse it
 	jsonStr := cleanedResponse[start : start+minLastIdx]
 	return &jsonStr, nil
+}
+
+func extractContinuationCommand(item any, commentId string) (*string, error) {
+	commentRepliesRenderer := utils.FindInJSON(item, "commentThreadRenderer", "replies", "commentRepliesRenderer")
+	if commentRepliesRenderer == nil {
+		return nil, errors.New("commentRepliesRenderer doesn't exist in object")
+	}
+	commentRepliesRendererMap := commentRepliesRenderer.(map[string]any)
+	targetId := commentRepliesRendererMap["targetId"].(string)
+	if strings.Contains(targetId, commentId) {
+		token := utils.FindInJSON(commentRepliesRenderer, "contents", "0", "continuationItemRenderer", "continuationEndpoint", "continuationCommand", "token")
+		if token == nil {
+			return nil, errors.New("token doesn't exist in object")
+		}
+		tokenStr := token.(string)
+		return &tokenStr, nil
+	}
+	return nil, errors.New("couldn't find a match")
+}
+
+func cleanComment(comment string) string {
+    // Convert to lowercase
+    comment = strings.ToLower(comment)
+
+    // Remove emojis and special characters
+    // Regex to remove emojis and other non-alphanumeric characters except spaces
+    reg := regexp.MustCompile(`[^\p{L}\p{N}\s]`)
+    comment = reg.ReplaceAllString(comment, "")
+
+    // Remove extra whitespaces
+    comment = regexp.MustCompile(`\s+`).ReplaceAllString(comment, " ")
+
+    // Remove common filler words and noise
+    removeWords := map[string]bool{
+        "i": true, "the": true, "a": true, "an": true, "and": true, 
+        "or": true, "but": true, "in": true, "on": true, "at": true, 
+        "to": true, "for": true, "of": true, "with": true, "by": true, 
+        "from": true, "up": true, "about": true, "lol": true, "wow": true, 
+        "omg": true, "crazy": true, "like": true, "just": true, "so": true, 
+        "his": true, "her": true, "their": true, "its": true, "edit": true,
+    }
+
+    // Split into words
+    words := strings.Fields(comment)
+    
+    // Filter out remove words and trim
+    var cleanedWords []string
+    for _, word := range words {
+        // Skip if word is in remove list or too short
+        if !removeWords[word] && len(word) > 1 {
+            cleanedWords = append(cleanedWords, word)
+        }
+    }
+
+    // Limit to first 20 words
+    if len(cleanedWords) > 20 {
+        cleanedWords = cleanedWords[:20]
+    }
+
+    return strings.TrimSpace(strings.Join(cleanedWords, " "))
 }
