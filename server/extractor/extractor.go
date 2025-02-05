@@ -1,12 +1,9 @@
 package extractor
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
-	"io"
 	"math"
-	"net/http"
 	"net/url"
 	"regexp"
 	"strings"
@@ -138,41 +135,21 @@ func getTitleData(data map[string]any) (*string, error) {
 }
 
 func getSubtitlesRequest(baseUrl string) ([]byte, error) {
-
 	parsedURL, err := url.Parse(baseUrl)
 	if err != nil {
 		fmt.Printf("error parsing the url %v", err)
 	}
-
 	queryParams := parsedURL.Query()
 	queryParams.Set("fmt", "json3")
 	queryParams.Set("lang", "en")
-
 	parsedURL.RawQuery = queryParams.Encode()
 
-	req, err := http.NewRequest("GET", parsedURL.String(), nil)
+	body, err := utils.GetRequest(parsedURL.String(), nil)
 	if err != nil {
-		fmt.Printf("Error while creating the GET request: %v\n", err)
-		return nil, errors.New("error while creating the GET request")
-	}
-
-	client := &http.Client{}
-	// Send the request
-	response, err := client.Do(req)
-	if err != nil {
-		fmt.Printf("Error making the GET request: %v\n", err)
-		return nil, errors.New("error making the GET request")
-	}
-	defer response.Body.Close()
-
-	body, err := io.ReadAll(response.Body)
-	if err != nil {
-		fmt.Printf("Error reading the response body: %v\n", err)
-		return nil, errors.New("error reading the response body")
+		return nil, err
 	}
 
 	return body, nil
-
 }
 
 func getCommentsRequest(token string) (*GetCommentResponse, error) {
@@ -180,29 +157,15 @@ func getCommentsRequest(token string) (*GetCommentResponse, error) {
 	// Make the GET request
 	url := "https://www.youtube.com/youtubei/v1/browse?prettyPrint=false"
 	data := fmt.Sprintf(`{"context":{"client":{"clientName":"WEB","clientVersion":"2.20240731.04.00"}},"continuation":"%s"}`, token)
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer([]byte(data)))
-	if err != nil {
-		fmt.Printf("Error while creating the POST request: %v\n", err)
-		return nil, errors.New("error while creating the GET request")
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Origin", "www.youtube.com")
-	req.Header.Set("Referer", "www.youtube.com")
 
-	client := &http.Client{}
-	// Send the request
-	response, err := client.Do(req)
-	if err != nil {
-		fmt.Printf("Error making the POST request: %v\n", err)
-		return nil, errors.New("error making the GET request")
-	}
-	defer response.Body.Close()
+	headers := make(map[string]string)
+	headers["Content-Type"] = "application/json"
+	headers["Origin"] =  "www.youtube.com"
+	headers["Referer"] =  "www.youtube.com"
 
-	// Read the response body
-	body, err := io.ReadAll(response.Body)
+	body, err := utils.PostRequest(url, headers, []byte(data))
 	if err != nil {
-		fmt.Printf("Error reading the response body: %v\n", err)
-		return nil, errors.New("error reading the response body")
+		return nil, err
 	}
 
 	continuations := gjson.Get(string(body), "onResponseReceivedEndpoints.1.reloadContinuationItemsCommand.continuationItems")
@@ -286,62 +249,38 @@ func getCommentsRequest(token string) (*GetCommentResponse, error) {
 }
 
 func initialRequest(url string) (*InitialReponse, error) {
-
-	// Make the GET request
-	req, err := http.NewRequest("GET", url, nil)
+	headers := make(map[string]string)
+	headers["Origin"] = "www.youtube.com"
+	headers["Referer"] = "www.youtube.com"
+	body, err := utils.GetRequest(url, nil)
 	if err != nil {
-		fmt.Printf("Error while creating the GET request: %v\n", err)
-		return nil, errors.New("error while creating the GET request")
+		return nil, err
 	}
-	req.Header.Set("Origin", "www.youtube.com")
-	req.Header.Set("Referer", "www.youtube.com")
-
-	client := &http.Client{}
-	// Send the request
-	response, err := client.Do(req)
-	if err != nil {
-		fmt.Printf("Error making the GET request: %v\n", err)
-		return nil, errors.New("error making the GET request")
-	}
-	defer response.Body.Close()
-
-	// Read the response body
-	body, err := io.ReadAll(response.Body)
-	if err != nil {
-		fmt.Printf("Error reading the response body: %v\n", err)
-		return nil, errors.New("error reading the response body")
-	}
-
-	// save html to file
-	// err = os.WriteFile("output.txt", body, 0644)
-	// if err != nil {
-	// 	panic(err)
-	// }
 
 	endStrArr := []string{";</script>"}
 	// Extract the json string within the html
 	initialData, err := extractJsonFromHtml(string(body), "var ytInitialData = ", endStrArr)
 	if err != nil {
 		fmt.Printf("Error reading the response body: %v\n", err)
-		return nil, errors.New("error reading the response body")
+		return nil, err
 	}
 
 	endStrArr = append(endStrArr, ";var")
 	initialPlayerResponse, err := extractJsonFromHtml(string(body), "var ytInitialPlayerResponse = ", endStrArr)
 	if err != nil {
 		fmt.Printf("Error reading the response body: %v\n", err)
-		return nil, errors.New("error reading the response body")
+		return nil, err
 	}
 	jsonInitialPlayerResponse, err := utils.ConvertToJSON([]byte(*initialPlayerResponse))
 	if err != nil {
-		return nil, errors.New("error while converting json to map")
+		fmt.Printf("Error while converting json to map: %v\n", err)
+		return nil, err
 	}
 
 	initialReponse := InitialReponse{
 		InitialData:           initialData,
 		InitialPlayerResponse: jsonInitialPlayerResponse,
 	}
-
 	return &initialReponse, nil
 }
 

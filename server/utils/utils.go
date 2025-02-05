@@ -3,6 +3,7 @@ package utils
 import (
 	"encoding/json"
 	"strconv"
+    "os"
 )
 
 func ConvertToJSON(inputBytes []byte) (map[string]any, error) {
@@ -35,4 +36,11 @@ func FindInJSON(data any, keys ...string) any {
     }
 
     return current
+}
+
+func WriteToFile(data []byte) {
+	err := os.WriteFile("output.txt", data, 0644)
+	if err != nil {
+		panic(err)
+	}
 }
