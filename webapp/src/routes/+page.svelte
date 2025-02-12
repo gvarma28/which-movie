@@ -13,7 +13,7 @@
 			method: 'GET'
 		});
 		const jsonReponse = await response.json();
-		value = jsonReponse.result
+		value = `Movie Name: ${jsonReponse.result}`
 	};
 	/*
 		//  runs whenever `url` changes -> similar to useEffect
@@ -27,7 +27,7 @@
 	<div class="container">
 		<input type="url" placeholder="Enter YouTube Shorts URL" bind:value={url} />
 		<button type="submit" on:click={onSubmit}>submit</button>
-		<p>Result {value}</p>
+		<p>{value}</p>
 	</div>
 </div>
 
