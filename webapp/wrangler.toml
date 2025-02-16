@@ -1,0 +1,7 @@
+name = "your-project-name"
+main = ".svelte-kit/cloudflare/index.js"
+compatibility_date = "2024-02-16"
+node_compat = true
+
+[dev]
+port = 8787

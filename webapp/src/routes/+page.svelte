@@ -1,4 +1,4 @@
-<script lang="ts">
+<!-- <script lang="ts">
 	let url = '';
 	let value: any = '';
 
@@ -91,4 +91,88 @@
 		color: #555;
 		margin-top: 20px;
 	}
-</style>
+</style> -->
+
+<script lang="ts">
+	import type { Movie } from '$lib/types';
+	import { onMount } from 'svelte';
+
+	let youtubeUrl: string = '';
+	let movie: Movie | null = null;
+	let error: string | null = null;
+	let isLoading: boolean = false;
+
+	async function isValidYoutubeUrl(url: string): Promise<boolean> {
+		try {
+			const urlObj = new URL(url);
+			return urlObj.hostname.includes('youtube.com') || urlObj.hostname.includes('youtu.be');
+		} catch {
+			return false;
+		}
+	}
+
+	async function findMovie(): Promise<void> {
+		try {
+			error = null;
+			isLoading = true;
+
+			if (!(await isValidYoutubeUrl(youtubeUrl))) {
+				throw new Error('Please enter a valid YouTube URL');
+			}
+
+			await new Promise((resolve) => setTimeout(resolve, 1000));
+
+			movie = {
+				title: 'Example Movie',
+				year: 2024,
+				description: 'This is where the movie details would appear.'
+			};
+		} catch (e) {
+			error = e instanceof Error ? e.message : 'An unknown error occurred';
+			movie = null;
+		} finally {
+			isLoading = false;
+		}
+	}
+</script>
+
+<div class="flex h-[calc(100vh-8rem)] items-center justify-center px-4">
+	<div class="w-full max-w-2xl space-y-8">
+		<div class="text-center">
+			<h1 class="mb-8 text-4xl font-bold">Find Movie from YouTube Short</h1>
+
+			<div class="space-y-4">
+				<input
+					type="text"
+					bind:value={youtubeUrl}
+					placeholder="Paste YouTube short URL here"
+					class="w-full rounded-lg border p-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+				/>
+				<button
+					on:click={findMovie}
+					disabled={isLoading}
+					class="rounded-lg bg-blue-600 px-6 py-2 text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-400"
+				>
+					{isLoading ? 'Searching...' : 'Find Movie'}
+				</button>
+			</div>
+
+			{#if error}
+				<div
+					class="mt-4 rounded border border-red-400 bg-red-100 px-4 py-3 text-red-700"
+					role="alert"
+				>
+					{error}
+				</div>
+			{/if}
+
+			{#if movie}
+				<div class="mt-4 rounded-lg bg-white p-6 text-left shadow-lg">
+					<h2 class="mb-2 text-2xl font-bold">{movie.title}</h2>
+					<p class="mb-2 text-gray-600">Year: {movie.year}</p>
+					<p>{movie.description}</p>
+				</div>
+			{/if}
+		</div>
+	</div>
+</div>
