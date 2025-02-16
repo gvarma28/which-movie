@@ -47,7 +47,6 @@ func ProcessExtractedSubtitles(extractedData string) (*string, error) {
 	return &response.Choices[0].Message.Content, nil
 }
 
-
 func getRequestBody(extractedData any, processType ProcessType) ([]byte, error) {
 
 	var combinedData string
@@ -64,11 +63,16 @@ func getRequestBody(extractedData any, processType ProcessType) ([]byte, error) 
 		messages = []Messages{
 			{
 				Role:    "system",
-				Content: "You are a movie geek and know everything about movies and shows.",
+				Content: "You are a highly knowledgeable film and television expert. Your task is to analyze user comments and identify which movies or TV shows they are discussing. You should consider plot points, character names, iconic scenes, and contextual clues in the comments to make accurate identifications.",
 			},
 			{
-				Role:    "user",
-				Content: "I will give you a list of comments, analyse them and output the possible movie/tv show that the comments talk about. Give me just name of the possible movies. Can you do that?",
+				Role: "user",
+				Content: `List movie/TV titles mentioned in comments.
+		Output format: "Title1 (year), Title2, Title3 (year)"
+		- Most likely titles first
+		- Years only if same title exists
+		- Include remakes if relevant
+		Example output: "The Dark Knight (2008), Batman Begins (2005), The Batman (2022)"`,
 			},
 			{
 				Role:    "user",
@@ -168,4 +172,28 @@ func makeRequest(extractedData any, processType ProcessType) (*string, error) {
 //         return nil, fmt.Errorf("failed to parse success response: %v", err)
 //     }
 //     return successResp, nil
+// }
+
+// messages = []Messages{
+// 	{
+// 		Role:    "system",
+// 		Content: "You are a highly knowledgeable film and television expert. Your task is to analyze user comments and identify which movies or TV shows they are discussing. You should consider plot points, character names, iconic scenes, and contextual clues in the comments to make accurate identifications.",
+// 	},
+// 	{
+// 		Role: "user",
+// 		Content: `Analyze the following user comments and identify the movies or TV shows being discussed.
+
+// Requirements:
+// - Return ONLY movie/show titles in a comma-separated list
+// - Order titles from most to least likely based on comment relevance
+// - If multiple titles fit equally well, list all of them
+// - If a comment could refer to both a movie and its remake, include both versions
+// - Include the year for movies with the same title (e.g., "Dune (1984), Dune (2021)")
+
+// Example output: "The Dark Knight (2008), Batman Begins (2005), The Batman (2022)"`,
+// 	},
+// 	{
+// 		Role:    "user",
+// 		Content: combinedData,
+// 	},
 // }

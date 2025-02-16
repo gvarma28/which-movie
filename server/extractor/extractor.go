@@ -42,7 +42,6 @@ func ExtractData(url string) (*ExtractDataResponse, error) {
 	title, err := getTitleData(initialReponse.InitialPlayerResponse)
 	if err != nil {
 		fmt.Printf("error while getting title data: err %v\n", err)
-		return nil, errors.New("error while getting title data")
 	}
 
 	extractDataResponse := ExtractDataResponse{
@@ -92,7 +91,10 @@ func getCommentsData(data map[string]any) ([]string, error) {
 }
 
 func getSubtitlesData(data map[string]any) (*string, error) {
-	timedtextUrl := utils.FindInJSON(data, "captions", "playerCaptionsTracklistRenderer", "captionTracks", "0", "baseUrl").(string)
+	timedtextUrl, ok := utils.FindInJSON(data, "captions", "playerCaptionsTracklistRenderer", "captionTracks", "0", "baseUrl").(string)
+	if !ok {
+		return nil, fmt.Errorf("timedtexturl is nil or not a string")
+	}
 	body, err := getSubtitlesRequest(timedtextUrl)
 	if err != nil {
 		fmt.Printf("error at getSubtitlesRequest %v \n", err)
@@ -124,8 +126,14 @@ func getSubtitlesData(data map[string]any) (*string, error) {
 }
 
 func getTitleData(data map[string]any) (*string, error) {
-	baseData := data["videoDetails"].(map[string]any)
-	title := baseData["title"].(string)
+	baseDataMap, ok := data["videoDetails"].(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("videoDetails is nil or not a map")
+	}
+	title, ok := baseDataMap["title"].(string)
+	if !ok {
+		return nil, fmt.Errorf("title is nil or not a string")
+	}
 	return &title, nil
 }
 
@@ -213,7 +221,7 @@ func getCommentsRequest(token string) (*GetCommentResponse, error) {
 				}
 			}
 		}
-	
+
 		cleanComment := cleanComment(content)
 
 		// Add comment to the list
@@ -243,6 +251,7 @@ func initialRequest(url string) (*InitialReponse, error) {
 		return nil, err
 	}
 
+	// utils.WriteToFile(body, "response.html")
 	endStrArr := []string{";</script>"}
 	// Extract the json string within the html
 	initialData, err := extractJsonFromHtml(string(body), "var ytInitialData = ", endStrArr)
@@ -250,6 +259,7 @@ func initialRequest(url string) (*InitialReponse, error) {
 		fmt.Printf("Error reading the response body: %v\n", err)
 		return nil, err
 	}
+	// utils.WriteToFile([]byte(*initialData), "initialData.json")
 	jsonInitialData, err := utils.ConvertToJSON([]byte(*initialData))
 	if err != nil {
 		fmt.Printf("Error while converting json to map: %v\n", err)
@@ -262,6 +272,7 @@ func initialRequest(url string) (*InitialReponse, error) {
 		fmt.Printf("Error reading the response body: %v\n", err)
 		return nil, err
 	}
+	// utils.WriteToFile([]byte(*initialPlayerResponse), "initialPlayerResponse.json")
 	jsonInitialPlayerResponse, err := utils.ConvertToJSON([]byte(*initialPlayerResponse))
 	if err != nil {
 		fmt.Printf("Error while converting json to map: %v\n", err)
@@ -340,43 +351,43 @@ func extractContinuationCommand(item any, commentId string) (*string, error) {
 }
 
 func cleanComment(comment string) string {
-    // Convert to lowercase
-    comment = strings.ToLower(comment)
+	// Convert to lowercase
+	comment = strings.ToLower(comment)
 
-    // Remove emojis and special characters
-    // Regex to remove emojis and other non-alphanumeric characters except spaces
-    reg := regexp.MustCompile(`[^\p{L}\p{N}\s]`)
-    comment = reg.ReplaceAllString(comment, "")
+	// Remove emojis and special characters
+	// Regex to remove emojis and other non-alphanumeric characters except spaces
+	reg := regexp.MustCompile(`[^\p{L}\p{N}\s]`)
+	comment = reg.ReplaceAllString(comment, "")
 
-    // Remove extra whitespaces
-    comment = regexp.MustCompile(`\s+`).ReplaceAllString(comment, " ")
+	// Remove extra whitespaces
+	comment = regexp.MustCompile(`\s+`).ReplaceAllString(comment, " ")
 
-    // Remove common filler words and noise
-    removeWords := map[string]bool{
-        "i": true, "the": true, "a": true, "an": true, "and": true, 
-        "or": true, "but": true, "in": true, "on": true, "at": true, 
-        "to": true, "for": true, "of": true, "with": true, "by": true, 
-        "from": true, "up": true, "about": true, "lol": true, "wow": true, 
-        "omg": true, "crazy": true, "like": true, "just": true, "so": true, 
-        "his": true, "her": true, "their": true, "its": true, "edit": true,
-    }
+	// Remove common filler words and noise
+	removeWords := map[string]bool{
+		"i": true, "the": true, "a": true, "an": true, "and": true,
+		"or": true, "but": true, "in": true, "on": true, "at": true,
+		"to": true, "for": true, "of": true, "with": true, "by": true,
+		"from": true, "up": true, "about": true, "lol": true, "wow": true,
+		"omg": true, "crazy": true, "like": true, "just": true, "so": true,
+		"his": true, "her": true, "their": true, "its": true, "edit": true,
+	}
 
-    // Split into words
-    words := strings.Fields(comment)
-    
-    // Filter out remove words and trim
-    var cleanedWords []string
-    for _, word := range words {
-        // Skip if word is in remove list or too short
-        if !removeWords[word] && len(word) > 1 {
-            cleanedWords = append(cleanedWords, word)
-        }
-    }
+	// Split into words
+	words := strings.Fields(comment)
 
-    // Limit to first 20 words
-    if len(cleanedWords) > 20 {
-        cleanedWords = cleanedWords[:20]
-    }
+	// Filter out remove words and trim
+	var cleanedWords []string
+	for _, word := range words {
+		// Skip if word is in remove list or too short
+		if !removeWords[word] && len(word) > 1 {
+			cleanedWords = append(cleanedWords, word)
+		}
+	}
 
-    return strings.TrimSpace(strings.Join(cleanedWords, " "))
+	// Limit to first 20 words
+	if len(cleanedWords) > 20 {
+		cleanedWords = cleanedWords[:20]
+	}
+
+	return strings.TrimSpace(strings.Join(cleanedWords, " "))
 }
