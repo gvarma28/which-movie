@@ -50,7 +50,12 @@ func doMagic(w http.ResponseWriter, r *http.Request) {
 	// process subtitles
 	if processAll {
 		comments := extractedData.Comments
-		comments = append(comments, *extractedData.Title, *extractedData.Subtitles)
+		if extractedData.Title != nil {
+			comments = append(comments, *extractedData.Title)
+		}
+		if extractedData.Subtitles != nil {
+			comments = append(comments, *extractedData.Subtitles)
+		}
 		movieNameAddr, err := processor.ProcessExtractedComments(comments)
 		if err != nil {
 			fmt.Printf("invalid response from ProcessExtractedComments - processAll\n")
@@ -74,13 +79,11 @@ func doMagic(w http.ResponseWriter, r *http.Request) {
 		Result:  movieName,
 		Success: true,
 	}
-	// Encode the struct to JSON and send it in the response body
+
 	if err := json.NewEncoder(w).Encode(response); err != nil {
-		// If encoding fails, return an error response
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	// io.WriteString(w, fmt.Sprintf("%s \n\n %s", url, test))
 }
 
 func enableCors(next http.Handler) http.Handler {

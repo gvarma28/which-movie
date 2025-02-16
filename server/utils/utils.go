@@ -38,8 +38,9 @@ func FindInJSON(data any, keys ...string) any {
 	return current
 }
 
-func WriteToFile(data []byte) {
-	err := os.WriteFile("output.txt", data, 0644)
+// for debugging
+func WriteToFile(data []byte, filename string) {
+	err := os.WriteFile(filename, data, 0644)
 	if err != nil {
 		panic(err)
 	}
