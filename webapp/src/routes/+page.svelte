@@ -49,18 +49,35 @@
 				throw new Error('Please enter a valid YouTube URL');
 			}
 
-			const jsonReponse = await doMagic(url);
+			// const jsonReponse = await doMagic(url);
 
-			const localMovies: Movie[] = [];
-			jsonReponse.result.split(',').forEach((movieStr: string) => {
-				localMovies.push({
-					title: movieStr.split('(')[0].trim(),
-					year: Number(movieStr.split('(')[1].split(')')[0].trim()),
-					description: 'This is where the movie details would appear.'
-				});
-			});
+			// const localMovies: Movie[] = [];
+			// jsonReponse.result.split(',').forEach((movieStr: string) => {
+			// 	localMovies.push({
+			// 		title: movieStr.split('(')[0].trim(),
+			// 		year: Number(movieStr.split('(')[1].split(')')[0].trim()),
+			// 		description: 'This is where the movie details would appear.'
+			// 	});
+			// });
 
-			movies = localMovies;
+			// movies = localMovies;
+			movies = [
+				{
+					title: 'The First Movie',
+					year: 2024,
+					description: 'This is the first movie that matches the clip.'
+				},
+				{
+					title: 'Another Similar Movie',
+					year: 2023,
+					description: 'This movie also has similar scenes to the YouTube short.'
+				},
+				{
+					title: 'The First Movie',
+					year: 2024,
+					description: 'This is the first movie that matches the clip.'
+				}
+			];
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'An unknown error occurred';
 			movies = [];
@@ -70,10 +87,10 @@
 	}
 </script>
 
-<div class="flex h-[calc(100vh-8rem)] items-center justify-center px-4">
-	<div class="w-full max-w-2xl space-y-8">
-		<div class="text-center">
-			<h1 class="mb-8 text-4xl font-bold text-[#493628]">Identify Movie from YouTube Short</h1>
+<div class="flex h-full flex-col">
+	<div class="p-4">
+		<div class="mx-auto max-w-4xl text-center">
+			<h1 class="mb-8 text-4xl font-bold text-[#493628]">Find Movie from YouTube Short</h1>
 
 			<div class="space-y-4">
 				<input
@@ -92,16 +109,17 @@
 			</div>
 
 			{#if error}
-				<div
-					class="mt-4 rounded border border-red-400 bg-red-100 px-4 py-3 text-red-700"
-					role="alert"
-				>
+				<div class="mt-4 rounded border border-red-400 bg-red-100 p-3 text-red-700" role="alert">
 					{error}
 				</div>
 			{/if}
+		</div>
+	</div>
 
-			{#if movies.length > 0}
-				<div class="mt-8 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+	{#if movies.length > 0}
+		<div class="flex-1 overflow-y-auto p-4">
+			<div class="mx-auto max-w-4xl">
+				<div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
 					{#each movies as movie}
 						<div
 							class="rounded-lg border border-[#D6C0B3] bg-white p-6 text-left shadow-lg transition-shadow hover:shadow-xl"
@@ -112,7 +130,7 @@
 						</div>
 					{/each}
 				</div>
-			{/if}
+			</div>
 		</div>
-	</div>
+	{/if}
 </div>
