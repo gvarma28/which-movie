@@ -1,3 +1,14 @@
 @import 'tailwindcss/base';
 @import 'tailwindcss/components';
 @import 'tailwindcss/utilities';
+
+:root {
+  --color-lightest: #E4E0E1;
+  --color-light: #D6C0B3;
+  --color-medium: #AB886D;
+  --color-dark: #493628;
+}
+
+body {
+  background-color: var(--color-lightest);
+}
