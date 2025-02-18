@@ -43,7 +43,6 @@
 			error = null;
 			isLoading = true;
 			movies = [];
-
 			const { isValid, url } = await isValidUrl(youtubeUrl);
 			if (!isValid) {
 				throw new Error('Please enter a valid YouTube URL');
@@ -87,32 +86,36 @@
 	}
 </script>
 
-<div class="flex h-full flex-col">
-	<div class="p-4">
-		<div class="mx-auto max-w-4xl text-center">
-			<h1 class="mb-8 text-4xl font-bold text-[#493628]">Find Movie from YouTube Short</h1>
-
-			<div class="space-y-4">
-				<input
-					type="text"
-					bind:value={youtubeUrl}
-					placeholder="Paste YouTube short URL here"
-					class="w-full rounded-lg border border-[#D6C0B3] bg-white p-3 placeholder-[#AB886D]/70 focus:outline-none focus:ring-2 focus:ring-[#AB886D]"
-				/>
-				<button
-					on:click={findMovie}
-					disabled={isLoading}
-					class="rounded-lg bg-[#AB886D] px-6 py-2 text-white transition-colors hover:bg-[#493628] disabled:cursor-not-allowed disabled:bg-[#D6C0B3]"
-				>
-					{isLoading ? 'Searching...' : 'Find Movie'}
-				</button>
-			</div>
-
-			{#if error}
-				<div class="mt-4 rounded border border-red-400 bg-red-100 p-3 text-red-700" role="alert">
-					{error}
+<div class="flex min-h-[calc(100vh-120px)] flex-col">
+	<div
+		class="{movies.length === 0
+			? 'flex min-h-[calc(100vh-120px)] items-center justify-center'
+			: 'mt-4'}"
+	>
+		<div class="w-full p-4">
+			<div class="mx-auto max-w-4xl text-center">
+				<h1 class="mb-8 text-4xl font-bold text-[#493628]">Find Movie From YouTube Short</h1>
+				<div class="space-y-4">
+					<input
+						type="text"
+						bind:value={youtubeUrl}
+						placeholder="Paste YouTube short URL here"
+						class="w-full rounded-lg border border-[#D6C0B3] bg-white p-3 placeholder-[#AB886D]/70 focus:outline-none focus:ring-2 focus:ring-[#AB886D]"
+					/>
+					<button
+						on:click={findMovie}
+						disabled={isLoading}
+						class="rounded-lg bg-[#AB886D] px-6 py-2 text-white transition-colors hover:bg-[#493628] disabled:cursor-not-allowed disabled:bg-[#D6C0B3]"
+					>
+						{isLoading ? 'Searching...' : 'Find Movie'}
+					</button>
 				</div>
-			{/if}
+				{#if error}
+					<div class="mt-4 rounded border border-red-400 bg-red-100 p-3 text-red-700" role="alert">
+						{error}
+					</div>
+				{/if}
+			</div>
 		</div>
 	</div>
 

@@ -19,7 +19,7 @@
 
 	<footer class="bg-[#493628] p-4 text-white">
 		<div class="container mx-auto text-center">
-			<p>© 2025 Movie Finder. Made with ❤️</p>
+			<p>© 2025 Which Movie. Made with ❤️</p>
 		</div>
 	</footer>
 </div>
