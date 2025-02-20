@@ -109,7 +109,7 @@ func main() {
 	if err != nil {
 		fmt.Printf("error loading .env file\n")
 	}
-	const PORT = ":8080"
+	const PORT = "0.0.0.0:8080"
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/", getRoot)
