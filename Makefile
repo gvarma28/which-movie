@@ -3,7 +3,7 @@
 include .env
 export $(shell sed 's/=.*//' .env)
 
-SERVER_BUILD_PATH = ./build/server
+SERVER_BUILD_PATH = ./build/which-movie
 
 build-server:
 	cd server && GOOS=linux GOARCH=amd64 go build -o ${SERVER_BUILD_PATH} 

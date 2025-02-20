@@ -48,35 +48,35 @@
 				throw new Error('Please enter a valid YouTube URL');
 			}
 
-			// const jsonReponse = await doMagic(url);
+			const jsonReponse = await doMagic(url);
 
-			// const localMovies: Movie[] = [];
-			// jsonReponse.result.split(',').forEach((movieStr: string) => {
-			// 	localMovies.push({
-			// 		title: movieStr.split('(')[0].trim(),
-			// 		year: Number(movieStr.split('(')[1].split(')')[0].trim()),
-			// 		description: 'This is where the movie details would appear.'
-			// 	});
-			// });
+			const localMovies: Movie[] = [];
+			jsonReponse.result.split(',').forEach((movieStr: string) => {
+				localMovies.push({
+					title: movieStr.split('(')[0].trim(),
+					year: Number(movieStr.split('(')[1].split(')')[0].trim()),
+					description: 'This is where the movie details would appear.'
+				});
+			});
 
-			// movies = localMovies;
-			movies = [
-				{
-					title: 'The First Movie',
-					year: 2024,
-					description: 'This is the first movie that matches the clip.'
-				},
-				{
-					title: 'Another Similar Movie',
-					year: 2023,
-					description: 'This movie also has similar scenes to the YouTube short.'
-				},
-				{
-					title: 'The First Movie',
-					year: 2024,
-					description: 'This is the first movie that matches the clip.'
-				}
-			];
+			movies = localMovies;
+			// movies = [
+			// 	{
+			// 		title: 'The First Movie',
+			// 		year: 2024,
+			// 		description: 'This is the first movie that matches the clip.'
+			// 	},
+			// 	{
+			// 		title: 'Another Similar Movie',
+			// 		year: 2023,
+			// 		description: 'This movie also has similar scenes to the YouTube short.'
+			// 	},
+			// 	{
+			// 		title: 'The First Movie',
+			// 		year: 2024,
+			// 		description: 'This is the first movie that matches the clip.'
+			// 	}
+			// ];
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'An unknown error occurred';
 			movies = [];
