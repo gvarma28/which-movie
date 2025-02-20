@@ -88,9 +88,9 @@
 
 <div class="flex min-h-[calc(100vh-120px)] flex-col">
 	<div
-		class="{movies.length === 0
+		class={movies.length === 0
 			? 'flex min-h-[calc(100vh-120px)] items-center justify-center'
-			: 'mt-4'}"
+			: 'mt-4'}
 	>
 		<div class="w-full p-4">
 			<div class="mx-auto max-w-4xl text-center">
