@@ -29,6 +29,12 @@
 	}
 
 	async function doMagic(url: string): Promise<any> {
+		// test result - avoid api call
+		if (import.meta.env?.VITE_TESTING_UI) {
+			return {
+				result: 'Movie Name (2020)'
+			};
+		}
 		const SERVER_URL = import.meta.env.VITE_SERVER_URL;
 		const api_url = SERVER_URL + 'magic?url=' + url;
 		const response: any = await fetch(api_url, {
@@ -54,8 +60,8 @@
 			jsonReponse.result.split(',').forEach((movieStr: string) => {
 				localMovies.push({
 					title: movieStr.split('(')[0].trim(),
-					year: Number(movieStr.split('(')[1].split(')')[0].trim()),
-					description: 'This is where the movie details would appear.'
+					year: Number(movieStr.split('(')[1].split(')')[0].trim())
+					// description: 'This is where the movie details would appear.'
 				});
 			});
 
@@ -122,7 +128,11 @@
 	{#if movies.length > 0}
 		<div class="flex-1 overflow-y-auto p-4">
 			<div class="mx-auto max-w-4xl">
-				<div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+				<div
+					class={movies.length === 1
+						? 'flex justify-center'
+						: 'grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3'}
+				>
 					{#each movies as movie}
 						<div
 							class="rounded-lg border border-[#D6C0B3] bg-white p-6 text-left shadow-lg transition-shadow hover:shadow-xl"
