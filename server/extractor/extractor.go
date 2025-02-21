@@ -179,7 +179,10 @@ func getCommentsRequest(token string) (*GetCommentResponse, error) {
 	if token2 == nil {
 		token2 = utils.FindInJSON(jsonBody, "onResponseReceivedEndpoints", "0", "appendContinuationItemsAction", "continuationItems", "20", "continuationItemRenderer", "continuationEndpoint", "continuationCommand", "token")
 	}
-	nextToken := token2.(string)
+	nextToken, ok := token2.(string)
+	if !ok {
+		nextToken = ""
+	}
 
 	var comments []Comment
 	mutationsArr := utils.FindInJSON(jsonBody, "frameworkUpdates", "entityBatchUpdate", "mutations").([]any)
