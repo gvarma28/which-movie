@@ -48,3 +48,14 @@ type APIError struct {
 	Param   *string `json:"param"` // Use pointer for nullable values
 	Code    *string `json:"code"`  // Use pointer for nullable values
 }
+
+// open-ai response
+type MagicResult struct {
+	Results []MovieResult `json:"results"`
+}
+
+type MovieResult struct {
+	MovieName        string `json:"movie_name"`
+	Year             int    `json:"year"`
+	ShortDescription string `json:"short_description"`
+}
