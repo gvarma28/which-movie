@@ -10,16 +10,9 @@ import (
 	"strings"
 )
 
-type ProcessType string
+func ProcessExtractedComments(extractedData []string) (MagicResult, error) {
 
-const (
-	Comments  ProcessType = "Comments"
-	Subtitles ProcessType = "Subtitles"
-)
-
-func ProcessExtractedComments(extractedData []string) (*string, error) {
-
-	body, err := makeRequest(extractedData, Comments)
+	body, err := makeRequest(extractedData)
 	if err != nil {
 		fmt.Printf("error while processing extracted comments %v\n", err)
 	}
@@ -29,25 +22,17 @@ func ProcessExtractedComments(extractedData []string) (*string, error) {
 		fmt.Printf("error parsing JSON: %s\n", err)
 	}
 
-	return &response.Choices[0].Message.Content, nil
-}
-
-func ProcessExtractedSubtitles(extractedData string) (*string, error) {
-
-	body, err := makeRequest(extractedData, Subtitles)
-	if err != nil {
-		fmt.Printf("error while processing extracted subtitles %v\n", err)
-	}
-	var response APIResponse
-	err = json.Unmarshal([]byte(*body), &response)
+	content := response.Choices[0].Message.Content
+	var magicResult MagicResult
+	err = json.Unmarshal([]byte(content), &magicResult)
 	if err != nil {
 		fmt.Printf("error parsing JSON: %s\n", err)
 	}
 
-	return &response.Choices[0].Message.Content, nil
+	return magicResult, nil
 }
 
-func getRequestBody(extractedData any, processType ProcessType) ([]byte, error) {
+func getRequestBody(extractedData any) ([]byte, error) {
 
 	var combinedData string
 	switch v := extractedData.(type) {
@@ -57,46 +42,19 @@ func getRequestBody(extractedData any, processType ProcessType) ([]byte, error) 
 		combinedData = v
 	}
 
-	var messages []Messages
-	switch processType {
-	case Comments:
-		messages = []Messages{
-			{
-				Role:    "system",
-				Content: "You are a highly knowledgeable film and television expert. Your task is to analyze user comments and identify which movies or TV shows they are discussing. You should consider plot points, character names, iconic scenes, and contextual clues in the comments to make accurate identifications.",
-			},
-			{
-				Role: "user",
-				Content: `List movie/TV titles mentioned in comments.
-		Output format: "Title1 (year), Title2, Title3 (year)"
-		- Most likely titles first
-		- Years only if same title exists
-		- Include remakes if relevant
-		Example output: "The Dark Knight (2008), Batman Begins (2005), The Batman (2022)"`,
-			},
-			{
-				Role:    "user",
-				Content: combinedData,
-			},
-		}
-	case Subtitles:
+	messages := []Messages{
 		{
-			messages = []Messages{
-				{
-					Role:    "system",
-					Content: "You are a movie geek and know everything about movies and shows.",
-				},
-				{
-					Role:    "user",
-					Content: "I will give you the subtitles of a youtube short. Please analyse it and output the possible movie/tv show that the subtitles talk about. Give me just name of the possible movies. Can you do that?",
-				},
-				{
-					Role:    "user",
-					Content: combinedData,
-				},
-			}
-		}
-
+			Role:    "system",
+			Content: "You are a film expert. Return only JSON data about movies/shows mentioned in user comments.",
+		},
+		{
+			Role:    "user",
+			Content: "Format required:\n{\n  \"results\": [\n    {\n      \"movie_name\": \"title\",\n      \"year\": YYYY,\n      \"short_description\": \"50-word max plot summary\"\n    }\n  ]\n}\nRules: List most confident matches first. Include year only if multiple versions exist. Keep descriptions brief.",
+		},
+		{
+			Role:    "user",
+			Content: combinedData,
+		},
 	}
 
 	requestBody := RequestBody{
@@ -110,12 +68,12 @@ func getRequestBody(extractedData any, processType ProcessType) ([]byte, error) 
 	return jsonData, nil
 }
 
-func makeRequest(extractedData any, processType ProcessType) (*string, error) {
+func makeRequest(extractedData any) (*string, error) {
 
 	url := "https://api.openai.com/v1/chat/completions"
 	method := "POST"
 
-	jsonData, err := getRequestBody(extractedData, processType)
+	jsonData, err := getRequestBody(extractedData)
 	if err != nil {
 		fmt.Printf("error while preparing the request body, err: %s\n", err)
 		return nil, errors.New("error preparing the request body")

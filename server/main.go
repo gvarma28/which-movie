@@ -14,20 +14,13 @@ import (
 )
 
 type Response struct {
-	Message []string `json:"message,omitempty"`
-	Result  string   `json:"result"`
-	Success bool     `json:"success"`
+	Results []processor.MovieResult `json:"results"`
+	Success bool                    `json:"success"`
 }
 
 func getRoot(w http.ResponseWriter, r *http.Request) {
 	io.WriteString(w, "Hello world!\n")
 }
-
-const (
-	processingComments  = false
-	processingSubtitles = false
-	processAll          = true
-)
 
 func doMagic(w http.ResponseWriter, r *http.Request) {
 	url := r.URL.Query().Get("url")
@@ -35,7 +28,6 @@ func doMagic(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		fmt.Printf("invalid response from GetComments\n")
 		response := Response{
-			Result:  "Unknown",
 			Success: false,
 		}
 		if err := json.NewEncoder(w).Encode(response); err != nil {
@@ -46,37 +38,21 @@ func doMagic(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var movieName string
-	// process subtitles
-	if processAll {
-		comments := extractedData.Comments
-		if extractedData.Title != nil {
-			comments = append(comments, *extractedData.Title)
-		}
-		if extractedData.Subtitles != nil {
-			comments = append(comments, *extractedData.Subtitles)
-		}
-		movieNameAddr, err := processor.ProcessExtractedComments(comments)
-		if err != nil {
-			fmt.Printf("invalid response from ProcessExtractedComments - processAll\n")
-		}
-		movieName = *movieNameAddr
-	} else if processingComments {
-		movieNameAddr, err := processor.ProcessExtractedComments(extractedData.Comments)
-		if err != nil {
-			fmt.Printf("invalid response from ProcessExtractedComments - processingComments\n")
-		}
-		movieName = *movieNameAddr
-	} else if processingSubtitles {
-		movieNameAddr, err := processor.ProcessExtractedSubtitles(*extractedData.Subtitles)
-		if err != nil {
-			fmt.Printf("invalid response from ProcessExtractedSubtitles - processAll\n")
-		}
-		movieName = *movieNameAddr
+	var magicResult processor.MagicResult
+	comments := extractedData.Comments
+	if extractedData.Title != nil {
+		comments = append(comments, *extractedData.Title)
+	}
+	if extractedData.Subtitles != nil {
+		comments = append(comments, *extractedData.Subtitles)
+	}
+	magicResult, err = processor.ProcessExtractedComments(comments)
+	if err != nil {
+		fmt.Printf("invalid response from ProcessExtractedComments - processAll\n")
 	}
 
 	response := Response{
-		Result:  movieName,
+		Results: magicResult.Results,
 		Success: true,
 	}
 
@@ -89,7 +65,7 @@ func doMagic(w http.ResponseWriter, r *http.Request) {
 func enableCors(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Add CORS headers
-		w.Header().Set("Access-Control-Allow-Origin", "https://which-movie.com") // Allow your SvelteKit app
+		w.Header().Set("Access-Control-Allow-Origin", "https://which-movie.com")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 		w.Header().Set("Access-Control-Allow-Credentials", "true")

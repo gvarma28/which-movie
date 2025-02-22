@@ -1,10 +1,15 @@
 export interface Movie {
-	title: string;
+	movie_name: string;
 	year: number;
-	description?: string;
+	short_description: string;
 }
 
 export interface IsValidUrlReponse {
 	isValid: boolean;
 	url: string;
+}
+
+export interface MagicResponse {
+	success: boolean;
+	results: Movie[]
 }
